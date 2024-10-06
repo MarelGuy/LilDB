@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Configuration {
     pub store_path: Option<String>,
     pub port: Option<u16>,
