@@ -40,12 +40,14 @@ pub enum TokenType<'a> {
     #[token("find")]
     Find,
 
-    // Shell commands
-    #[token("exit")]
-    Exit,
-
     #[token("help")]
     Help,
+
+    #[token("list")]
+    List,
+
+    #[token("show")]
+    Show,
 
     // Misc
     #[token("\n")]

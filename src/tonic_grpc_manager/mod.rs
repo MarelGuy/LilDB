@@ -5,7 +5,11 @@ use tokio::sync::{mpsc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
 
-use crate::{database_manager::Database, lex_input, lildb};
+use crate::{
+    database_manager::Database,
+    lex_input,
+    lildb::{self, ConnectRequest, ConnectResponse, DisconnectRequest, DisconnectResponse},
+};
 
 #[derive(Default)]
 pub struct MyLilDBShell {
@@ -44,7 +48,7 @@ impl LilDbShell for MyLilDBShell {
                         drop(db_read);
 
                         let output_tuple: (String, bool, Database) =
-                            lex_input(command, db_clone.clone());
+                            lex_input(command, db_clone.clone()).await;
 
                         if db_clone != output_tuple.2 {
                             let new_db: Database = output_tuple.2;
@@ -62,5 +66,29 @@ impl LilDbShell for MyLilDBShell {
         });
 
         Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    async fn connect_to_db(
+        &self,
+        request: Request<ConnectRequest>,
+    ) -> Result<Response<ConnectResponse>, Status> {
+        print!("Ip connected: {}\n\r", request.get_ref().ip);
+
+        return Ok(Response::new(ConnectResponse {
+            success: true,
+            message: "Connected".into(),
+        }));
+    }
+
+    async fn disconnect_from_db(
+        &self,
+        request: Request<DisconnectRequest>,
+    ) -> Result<Response<DisconnectResponse>, Status> {
+        print!("Ip disconnected: {}\n\r", request.get_ref().ip);
+
+        return Ok(Response::new(DisconnectResponse {
+            success: true,
+            message: "Disconnected".into(),
+        }));
     }
 }

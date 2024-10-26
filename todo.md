@@ -17,3 +17,9 @@
  - Add basic documentation and readme.md
  - Add basic changelog
  - Choose a better name for the project
+
+## Bugs
+ - No port is used when not specified in config file
+ - Should throw an error if database name isn't specified on create db
+ - Should /n/r when error is thrown
+ 

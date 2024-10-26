@@ -1,7 +1,7 @@
 use database_manager::{address::Address, configuration::Configuration, Database};
 use lexer::token::TokenType;
 use lildb::lil_db_shell_server::LilDbShellServer;
-use std::{collections::HashSet, error::Error, net, sync::Arc};
+use std::{collections::HashSet, error::Error, net, sync::Arc, time::Duration};
 use token_list::TokenList;
 use tokio::{signal, sync::RwLock};
 use tonic::transport::Server;
@@ -11,11 +11,12 @@ mod database_manager;
 mod lexer;
 mod token_list;
 mod tonic_grpc_manager;
+
 pub mod lildb {
     tonic::include_proto!("lildb");
 }
 
-fn lex_input(input: String, mut database: Database) -> (String, bool, Database) {
+async fn lex_input(input: String, mut database: Database) -> (String, bool, Database) {
     let lexer: lexer::Lexer<'_> = lexer::Lexer::new(&input);
 
     let mut token_list: TokenList = TokenList::new(vec![]);
@@ -32,11 +33,12 @@ fn lex_input(input: String, mut database: Database) -> (String, bool, Database) 
 
     token_list.current_token = token_list.tokens[0];
 
-    let (result, exit) = database.process_tokens(token_list).unwrap();
+    let (result, exit) = database.process_tokens(token_list).await.unwrap();
 
     (result, exit, database)
 }
 
+#[allow(clippy::needless_return)]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     print!("LilDB - 0.0.0\n\r");
@@ -58,6 +60,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let ddb_shell: MyLilDBShell = MyLilDBShell::new(Arc::new(RwLock::new(database)));
 
     let server = Server::builder()
+        .http2_keepalive_interval(Some(Duration::from_secs(5)))
+        .http2_keepalive_timeout(Some(Duration::from_secs(10)))
         .add_service(LilDbShellServer::new(ddb_shell))
         .serve(addr);
 
