@@ -12,7 +12,7 @@ impl Default for Configuration {
     fn default() -> Self {
         Self {
             store_path: Some("./dbstore".into()),
-            port: Some(8080_u16),
+            port: Some(8080),
             show_local_ip: Some(false),
             show_public_ip: Some(false),
         }

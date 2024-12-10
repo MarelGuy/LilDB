@@ -54,7 +54,6 @@ impl Database {
             TokenType::Drop => self.f_drop(token_list)?,
             TokenType::Use => self.f_use(token_list).await?,
             TokenType::Show => self.f_show(token_list)?,
-            _ => format!("Unknown command: {}", token_list.tokens[0].slice),
             // TokenType::Delete => {
             //     result = f_delete::f_delete(token_list, database)?;
             // }
@@ -70,6 +69,7 @@ impl Database {
             // TokenType::Find => {
             //     result = f_find::f_find(token_list, database)?;
             // }
+            _ => format!("Unknown command: {}\n\r", token_list.tokens[0].slice),
         };
 
         Ok((result, false))
@@ -119,7 +119,7 @@ impl Database {
                     "Created collection \"".into()
                 }
             }
-            _ => "You need to specify either \"db\" or \"collection\" before \"create ".into(),
+            _ => "You need to specify either \"db\" or \"collection\" before \"".into(),
         };
 
         Ok(format!(

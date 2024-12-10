@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .add_service(LilDbShellServer::new(ddb_shell))
         .serve(addr);
 
-    print!("Listening on http://{}\n\r", address.show_addr);
+    print!("Listening on https://{}\n\r", address.show_addr);
 
     tokio::select! {
         _ = server => print!("Server terminated\n\r"),

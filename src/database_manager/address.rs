@@ -21,7 +21,7 @@ impl Address {
         let mut use_addr: String = "127.0.0.1".into();
         let mut show_addr: String = "127.0.0.1".into();
 
-        let use_port: u16 = config.port.unwrap_or_default();
+        let use_port: u16 = config.port.unwrap_or(8080);
 
         if config.show_local_ip.unwrap_or_default() {
             let local_ip: net::IpAddr = local_ip()?;
