@@ -87,7 +87,7 @@ impl Database {
 
                 fs::create_dir_all(format!(
                     "{}/{}",
-                    self.config.store_path.clone().unwrap(),
+                    self.config.store_path.as_ref().unwrap(),
                     name
                 ))?;
 
@@ -105,7 +105,7 @@ impl Database {
 
                     fs::create_dir_all(format!(
                         "{}/{}/{}",
-                        self.config.store_path.clone().unwrap(),
+                        self.config.store_path.as_ref().unwrap(),
                         self.name,
                         name
                     ))?;
@@ -135,7 +135,7 @@ impl Database {
 
         match token_list.current_token.token_type {
             TokenType::Dbs => {
-                for db_entry in fs::read_dir(self.config.store_path.clone().unwrap())? {
+                for db_entry in fs::read_dir(self.config.store_path.as_ref().unwrap())? {
                     let db_entry: DirEntry = db_entry?;
                     let db_path: PathBuf = db_entry.path();
 
@@ -155,7 +155,7 @@ impl Database {
 
                 for db_entry in fs::read_dir(format!(
                     "{}/{}",
-                    self.config.store_path.clone().unwrap(),
+                    self.config.store_path.as_ref().unwrap(),
                     name
                 ))? {
                     let db_entry: DirEntry = db_entry?;
@@ -183,7 +183,7 @@ impl Database {
     fn f_drop(&mut self, mut token_list: TokenList<'_>) -> Result<String, Box<dyn Error>> {
         token_list.next(1);
 
-        let config_store_path: String = self.config.store_path.clone().unwrap();
+        let config_store_path: &String = self.config.store_path.as_ref().unwrap();
 
         let output_stream: String = match token_list.current_token.token_type {
             TokenType::Db => {
@@ -227,7 +227,7 @@ impl Database {
     async fn f_use(&mut self, mut token_list: TokenList<'_>) -> Result<String, Box<dyn Error>> {
         token_list.next(1);
 
-        let config_store_path: String = self.config.store_path.clone().unwrap();
+        let config_store_path: &String = self.config.store_path.as_ref().unwrap();
         let path_string: String =
             format!("{}/{}", config_store_path, token_list.current_token.slice);
         let path: &Path = Path::new(&path_string);
@@ -240,7 +240,7 @@ impl Database {
                 self.current_collection = 0;
                 self.name = name.to_string();
 
-                for db_entry in fs::read_dir(self.path.clone())? {
+                for db_entry in fs::read_dir(&self.path)? {
                     let db_entry: DirEntry = db_entry?;
                     let db_path: PathBuf = db_entry.path();
 
@@ -249,14 +249,15 @@ impl Database {
                     if db_path.is_dir() {
                         let collection_name: &str = db_path.file_name().unwrap().to_str().unwrap();
 
-                        let db_path: PathBuf = db_path.clone();
+                        let db_path: &PathBuf = &db_path;
 
-                        let (tx, rx) = mpsc::channel();
+                        let (tx, rx): (mpsc::Sender<Document>, mpsc::Receiver<Document>) =
+                            mpsc::channel();
 
                         let wg: WaitGroup = WaitGroup::new();
 
-                        if fs::read_dir(db_path.clone()).unwrap().count() != 0 {
-                            for doc_entry in fs::read_dir(db_path.clone()).unwrap() {
+                        if fs::read_dir(&db_path).unwrap().count() != 0 {
+                            for doc_entry in fs::read_dir(&db_path).unwrap() {
                                 let tx: mpsc::Sender<Document> = tx.clone();
                                 let worker: waitgroup::Worker = wg.worker();
 

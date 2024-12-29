@@ -45,13 +45,11 @@ impl LilDbShell for MyLilDBShell {
                         let db_read: RwLockReadGuard<'_, Database> = db.read().await;
                         let db_clone: Database = db_read.clone();
 
-                        drop(db_read);
-
                         let output_tuple: (String, bool, Database) =
-                            lex_input(command, db_clone.clone()).await;
+                            lex_input(command, db_clone).await;
 
-                        if db_clone != output_tuple.2 {
-                            let new_db: Database = output_tuple.2;
+                        if db_read.clone() != output_tuple.2 {
+                            let new_db: Database = output_tuple.2.clone();
                             let mut db_write: RwLockWriteGuard<'_, Database> = db.write().await; // Acquire a write lock
                             *db_write = new_db;
                         }
