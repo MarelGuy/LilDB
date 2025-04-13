@@ -85,6 +85,16 @@ impl Database {
 
                 let name: &str = token_list.current_token.slice;
 
+                if fs::read_dir(format!(
+                    "{}/{}",
+                    self.config.store_path.as_ref().unwrap(),
+                    name
+                ))
+                .is_ok()
+                {
+                    return Ok(format!("Database \"{}\" already exists\n\r", name));
+                }
+
                 fs::create_dir_all(format!(
                     "{}/{}",
                     self.config.store_path.as_ref().unwrap(),
@@ -96,7 +106,7 @@ impl Database {
             TokenType::Collection => {
                 if self.name.is_empty() {
                     return Ok(String::from(
-                        "Error: no database provided. Select one with \"use <name>\" ",
+                        "Error: no database provided. Select one with \"use <name>\"\n\r",
                     ));
                 } else {
                     token_list.next(1);
@@ -123,7 +133,7 @@ impl Database {
         };
 
         Ok(format!(
-            "{}{}\"",
+            "{}{}\"\n\r",
             created_type, token_list.current_token.slice
         ))
     }
@@ -153,26 +163,10 @@ impl Database {
             TokenType::Identifier(_) => {
                 let name: &str = token_list.current_token.slice;
 
-                let dir: Result<ReadDir, io::Error> = fs::read_dir(format!(
-                    "{}/{}",
-                    self.config.store_path.as_ref().unwrap(),
-                    name
-                ));
+                let is_error: String = self.read_names(&mut output_stream, name)?;
 
-                let dir = match dir {
-                    Ok(dir) => dir,
-                    Err(_) => return Ok(String::from("Error: no such database\n\r")),
-                };
-
-                for db_entry in dir {
-                    let db_entry: DirEntry = db_entry?;
-                    let db_path: PathBuf = db_entry.path();
-
-                    if db_path.is_dir() {
-                        let name: &str = db_path.file_name().unwrap().to_str().unwrap();
-
-                        output_stream.push_str(format!("{}\n\r", name).as_str());
-                    }
+                if !is_error.is_empty() {
+                    return Ok(is_error);
                 }
 
                 if output_stream.is_empty() {
@@ -180,7 +174,9 @@ impl Database {
                 }
             }
             _ => {
-                return Ok(String::from("Error: invalid syntax\n\r"));
+                if self.name.is_empty() {
+                    return Ok(String::from("Error: invalid syntax\n\r"));
+                }
             }
         };
 
@@ -207,7 +203,10 @@ impl Database {
                 self.current_collection = 0;
                 self.collections = HashSet::new();
 
-                format!("Dropped database \"{}\"", token_list.current_token.slice)
+                format!(
+                    "Dropped database \"{}\"\n\r",
+                    token_list.current_token.slice
+                )
             }
             TokenType::Collection => {
                 token_list.next(1);
@@ -223,7 +222,10 @@ impl Database {
                     config_store_path, self.name, token_list.current_token.slice
                 ))?;
 
-                format!("Dropped collection \"{}\"", token_list.current_token.slice)
+                format!(
+                    "Dropped collection \"{}\"\n\r",
+                    token_list.current_token.slice
+                )
             }
             _ => String::from("Error: invalid syntax\n\r"),
         };
@@ -339,8 +341,35 @@ impl Database {
                 }
             }
         } else {
-            return Ok(String::from("Error: database not found"));
+            return Ok(String::from("Error: database not found\n\r"));
         }
         Ok(format!("Using database: {}\n\r", self.name))
+    }
+
+    // Utilities
+    fn read_names(&self, output_stream: &mut String, name: &str) -> Result<String, Box<dyn Error>> {
+        let dir: Result<ReadDir, io::Error> = fs::read_dir(format!(
+            "{}/{}",
+            self.config.store_path.as_ref().unwrap(),
+            name
+        ));
+
+        let dir: ReadDir = match dir {
+            Ok(dir) => dir,
+            Err(_) => return Ok(String::from("Error: no such database\n\r")),
+        };
+
+        for db_entry in dir {
+            let db_entry: DirEntry = db_entry?;
+            let db_path: PathBuf = db_entry.path();
+
+            if db_path.is_dir() {
+                let name: &str = db_path.file_name().unwrap().to_str().unwrap();
+
+                output_stream.push_str(format!("{}\n\r", name).as_str());
+            }
+        }
+
+        Ok("".into())
     }
 }
