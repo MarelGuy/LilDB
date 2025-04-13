@@ -4,6 +4,7 @@ use lildb::{lil_db_shell_server::LilDbShell, CommandRequest, CommandResponse};
 use tokio::sync::{mpsc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
+use tracing::info;
 
 use crate::{
     database_manager::Database,
@@ -34,23 +35,28 @@ impl LilDbShell for MyLilDBShell {
         let (tx, rx) = mpsc::channel(4);
 
         let db: Arc<RwLock<Database>> = self.database.clone();
-        // TODO: Better config management
 
         tokio::spawn(async move {
             while let Ok(req) = stream.message().await {
                 match req {
                     Some(req) => {
                         let command: String = req.command;
+                        let needs_update: bool;
+                        let output_tuple: (String, bool, Database);
 
-                        let db_read: RwLockReadGuard<'_, Database> = db.read().await;
-                        let db_clone: Database = db_read.clone();
+                        {
+                            let db_read: RwLockReadGuard<'_, Database> = db.read().await;
+                            let db_clone: Database = db_read.clone();
 
-                        let output_tuple: (String, bool, Database) =
-                            lex_input(command, db_clone).await;
+                            output_tuple = lex_input(command, db_clone).await;
 
-                        if db_read.clone() != output_tuple.2 {
+                            needs_update = db_read.clone() != output_tuple.2;
+                        }
+
+                        if needs_update {
                             let new_db: Database = output_tuple.2.clone();
-                            let mut db_write: RwLockWriteGuard<'_, Database> = db.write().await; // Acquire a write lock
+                            let mut db_write: RwLockWriteGuard<'_, Database> = db.write().await;
+
                             *db_write = new_db;
                         }
 
@@ -70,11 +76,11 @@ impl LilDbShell for MyLilDBShell {
         &self,
         request: Request<ConnectRequest>,
     ) -> Result<Response<ConnectResponse>, Status> {
-        print!("Ip connected: {}\n\r", request.get_ref().ip);
+        info!("Ip connected: {}", request.get_ref().ip);
 
         return Ok(Response::new(ConnectResponse {
             success: true,
-            message: "Connected".into(),
+            message: "Connected!".into(),
         }));
     }
 
@@ -82,11 +88,11 @@ impl LilDbShell for MyLilDBShell {
         &self,
         request: Request<DisconnectRequest>,
     ) -> Result<Response<DisconnectResponse>, Status> {
-        print!("Ip disconnected: {}\n\r", request.get_ref().ip);
+        info!("Ip disconnected: {}", request.get_ref().ip);
 
         return Ok(Response::new(DisconnectResponse {
             success: true,
-            message: "Disconnected".into(),
+            message: "Disconnected!".into(),
         }));
     }
 }

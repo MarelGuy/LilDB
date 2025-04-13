@@ -1,5 +1,6 @@
 use core::error::Error;
 use std::{net, process};
+use tracing::error;
 
 use local_ip_address::local_ip;
 
@@ -13,7 +14,7 @@ pub struct Address {
 impl Address {
     pub async fn new(config: &Configuration) -> Result<Self, Box<dyn Error>> {
         if config.show_local_ip.unwrap_or_default() && config.show_public_ip.unwrap_or_default() {
-            print!("Error: cannot use both show_local_ip and show_public_ip in config.toml\n\r");
+            error!("Error: cannot use both show_local_ip and show_public_ip in config.toml\n\r");
 
             process::exit(1)
         }

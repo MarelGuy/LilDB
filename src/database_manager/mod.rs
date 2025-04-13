@@ -1,7 +1,8 @@
 use std::{
     collections::HashSet,
     error::Error,
-    fs::{self, DirEntry},
+    fs::{self, DirEntry, ReadDir},
+    io,
     path::{Path, PathBuf},
     sync::mpsc,
 };
@@ -10,6 +11,7 @@ use collection::Collection;
 use configuration::Configuration;
 use document::Document;
 use tokio::task;
+use tracing::error;
 use waitgroup::WaitGroup;
 
 use crate::{lexer::token::TokenType, token_list::TokenList};
@@ -57,9 +59,7 @@ impl Database {
             // TokenType::Delete => {
             //     result = f_delete::f_delete(token_list, database)?;
             // }
-            // TokenType::Help => {
-            //     result = f_help::f_help(token_list, database)?;
-            // }
+            TokenType::Help => self.f_help()?,
             // TokenType::Insert => {
             //     result = f_insert::f_insert(token_list, database)?;
             // }
@@ -153,11 +153,18 @@ impl Database {
             TokenType::Identifier(_) => {
                 let name: &str = token_list.current_token.slice;
 
-                for db_entry in fs::read_dir(format!(
+                let dir: Result<ReadDir, io::Error> = fs::read_dir(format!(
                     "{}/{}",
                     self.config.store_path.as_ref().unwrap(),
                     name
-                ))? {
+                ));
+
+                let dir = match dir {
+                    Ok(dir) => dir,
+                    Err(_) => return Ok(String::from("Error: no such database\n\r")),
+                };
+
+                for db_entry in dir {
                     let db_entry: DirEntry = db_entry?;
                     let db_path: PathBuf = db_entry.path();
 
@@ -224,6 +231,26 @@ impl Database {
         Ok(output_stream)
     }
 
+    fn f_help(&self) -> Result<String, Box<dyn Error>> {
+        let help_message = String::from(
+        "Available commands:\n\r\
+         -------------------\n\r\
+         CREATE DB <database_name>           - Creates a new database.\n\r\
+         CREATE COLLECTION <collection_name> - Creates a new collection in the current database.\n\r\
+         DROP DB <database_name>             - Deletes a database and all its content.\n\r\
+         DROP COLLECTION <collection_name>   - Deletes a collection from the current database.\n\r\
+         USE <database_name>                 - Switches the current context to the specified database.\n\r\
+         SHOW DBS                            - Lists all available databases.\n\r\
+         SHOW <database_name>                - Lists all collections within the specified database. (Currently needs the db name even if you are using one)\n\r\
+         HELP                                - Shows this help message.\n\r\
+         EXIT                                - Exits the program.\n\r\
+         \n\r\
+         Unavailable commands (coming soon): DELETE, INSERT, UPDATE, FIND\n\r\
+         "
+    );
+        Ok(help_message)
+    }
+
     async fn f_use(&mut self, mut token_list: TokenList<'_>) -> Result<String, Box<dyn Error>> {
         token_list.next(1);
 
@@ -281,7 +308,7 @@ impl Database {
                                             doc_path.to_str().unwrap().to_string(),
                                         ))
                                         .unwrap_or_else(
-                                            |err| print!("Error sending document: {}\n\r", err),
+                                            |err| error!("Error sending document: {}\n\r", err),
                                         );
                                     }
 
@@ -291,9 +318,13 @@ impl Database {
 
                             wg.wait().await;
 
+                            drop(tx);
+
                             let mut documents: Vec<Document> = vec![];
 
-                            documents.push(rx.recv().unwrap());
+                            while let Ok(document) = rx.recv() {
+                                documents.push(document);
+                            }
 
                             let collection: Collection = Collection::new(
                                 collection_name.to_string(),
@@ -304,16 +335,12 @@ impl Database {
                             collections.insert(collection);
                         }
                     }
-
                     self.collections = collections;
                 }
             }
         } else {
             return Ok(String::from("Error: database not found"));
         }
-
-        // print!("{:#?}\n\r", self);
-
-        Ok(format!("Using database: {}", self.name))
+        Ok(format!("Using database: {}\n\r", self.name))
     }
 }

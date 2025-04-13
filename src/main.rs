@@ -6,6 +6,7 @@ use token_list::TokenList;
 use tokio::{signal, sync::RwLock};
 use tonic::transport::Server;
 use tonic_grpc_manager::MyLilDBShell;
+use tracing::{error, info};
 
 mod database_manager;
 mod lexer;
@@ -41,7 +42,8 @@ async fn lex_input(input: String, mut database: Database) -> (String, bool, Data
 #[allow(clippy::needless_return)]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    print!("LilDB - 0.0.0\n\r");
+    tracing_subscriber::fmt::init();
+    info!("LilDB - 0.0.0");
 
     let config: Configuration = Configuration::new("./db_config.toml".into());
 
@@ -65,11 +67,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .add_service(LilDbShellServer::new(ddb_shell))
         .serve(addr);
 
-    print!("Listening on https://{}\n\r", address.show_addr);
+    info!("Listening on https://{}", address.show_addr);
 
     tokio::select! {
-        _ = server => print!("Server terminated\n\r"),
-        _ = signal::ctrl_c() => print!("Ctrl+C received, shutting down\n\r"),
+        _ = server => error!("Server terminated"),
+        _ = signal::ctrl_c() => info!("Ctrl+C received, shutting down"),
     }
 
     Ok(())
