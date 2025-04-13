@@ -17,6 +17,8 @@ reqwest = { version = "0.12.15", features = ["blocking"] }
 chrono = "0.4.40"
 threadpool = "1.8.1"
 waitgroup = "0.1.2"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
 
 [build-dependencies]
 tonic-build = "0.13.0"
