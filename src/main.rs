@@ -23,12 +23,12 @@ async fn lex_input(input: String, mut database: Database) -> (String, bool, Data
     let mut token_list: TokenList = TokenList::new(vec![]);
 
     for token in lexer {
-        if token.token_type != TokenType::Null
-            && token.token_type != TokenType::Space
-            && token.token_type != TokenType::LineFeed
-            && token.token_type != TokenType::Tab
+        if token.tok_type != TokenType::Null
+            && token.tok_type != TokenType::Space
+            && token.tok_type != TokenType::LineFeed
+            && token.tok_type != TokenType::Tab
         {
-            token_list.tokens.push(token)
+            token_list.tokens.push(token);
         }
     }
 

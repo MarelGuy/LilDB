@@ -51,7 +51,7 @@ impl Database {
         &mut self,
         token_list: TokenList<'_>,
     ) -> Result<(String, bool), Box<dyn Error>> {
-        let result: String = match token_list.tokens[0].token_type {
+        let result: String = match token_list.tokens[0].tok_type {
             TokenType::Create => self.f_create(token_list)?,
             TokenType::Drop => self.f_drop(token_list)?,
             TokenType::Use => self.f_use(token_list).await?,
@@ -59,7 +59,7 @@ impl Database {
             // TokenType::Delete => {
             //     result = f_delete::f_delete(token_list, database)?;
             // }
-            TokenType::Help => self.f_help()?,
+            TokenType::Help => self.f_help(),
             // TokenType::Insert => {
             //     result = f_insert::f_insert(token_list, database)?;
             // }
@@ -79,7 +79,7 @@ impl Database {
     fn f_create(&mut self, mut token_list: TokenList) -> Result<String, Box<dyn Error>> {
         token_list.next(1);
 
-        let created_type: String = match token_list.current_token.token_type {
+        let created_type: String = match token_list.current_token.tok_type {
             TokenType::Db => {
                 token_list.next(1);
 
@@ -92,7 +92,7 @@ impl Database {
                 ))
                 .is_ok()
                 {
-                    return Ok(format!("Database \"{}\" already exists\n\r", name));
+                    return Ok(format!("Database \"{name}\" already exists\n\r"));
                 }
 
                 fs::create_dir_all(format!(
@@ -108,26 +108,25 @@ impl Database {
                     return Ok(String::from(
                         "Error: no database provided. Select one with \"use <name>\"\n\r",
                     ));
-                } else {
-                    token_list.next(1);
-
-                    let name: &str = token_list.current_token.slice;
-
-                    fs::create_dir_all(format!(
-                        "{}/{}/{}",
-                        self.config.store_path.as_ref().unwrap(),
-                        self.name,
-                        name
-                    ))?;
-
-                    self.collections.insert(Collection::new(
-                        name.to_string(),
-                        name.to_string(),
-                        vec![],
-                    ));
-
-                    "Created collection \"".into()
                 }
+                token_list.next(1);
+
+                let name: &str = token_list.current_token.slice;
+
+                fs::create_dir_all(format!(
+                    "{}/{}/{}",
+                    self.config.store_path.as_ref().unwrap(),
+                    self.name,
+                    name
+                ))?;
+
+                self.collections.insert(Collection::new(
+                    name.to_string(),
+                    name.to_string(),
+                    vec![],
+                ));
+
+                "Created collection \"".into()
             }
             _ => "You need to specify either \"db\" or \"collection\" before \"".into(),
         };
@@ -141,9 +140,9 @@ impl Database {
     fn f_show(&self, mut token_list: TokenList<'_>) -> Result<String, Box<dyn Error>> {
         token_list.next(1);
 
-        let mut output_stream = String::from("");
+        let mut output_stream = String::new();
 
-        match token_list.current_token.token_type {
+        match token_list.current_token.tok_type {
             TokenType::Dbs => {
                 for db_entry in fs::read_dir(self.config.store_path.as_ref().unwrap())? {
                     let db_entry: DirEntry = db_entry?;
@@ -152,7 +151,7 @@ impl Database {
                     if db_path.is_dir() {
                         let name: &str = db_path.file_name().unwrap().to_str().unwrap();
 
-                        output_stream.push_str(format!("{}\n\r", name).as_str());
+                        output_stream.push_str(format!("{name}\n\r").as_str());
                     }
                 }
 
@@ -178,7 +177,7 @@ impl Database {
                     return Ok(String::from("Error: invalid syntax\n\r"));
                 }
             }
-        };
+        }
 
         Ok(output_stream[..output_stream.len() - 1].into())
     }
@@ -188,7 +187,7 @@ impl Database {
 
         let config_store_path: &String = self.config.store_path.as_ref().unwrap();
 
-        let output_stream: String = match token_list.current_token.token_type {
+        let output_stream: String = match token_list.current_token.tok_type {
             TokenType::Db => {
                 token_list.next(1);
 
@@ -197,8 +196,8 @@ impl Database {
                     config_store_path, token_list.current_token.slice
                 ))?;
 
-                self.name = "".to_string();
-                self.path = "".to_string();
+                self.name = String::new();
+                self.path = String::new();
 
                 self.current_collection = 0;
                 self.collections = HashSet::new();
@@ -233,9 +232,9 @@ impl Database {
         Ok(output_stream)
     }
 
-    fn f_help(&self) -> Result<String, Box<dyn Error>> {
-        let help_message = String::from(
-        "Available commands:\n\r\
+    #[allow(clippy::unused_self)]
+    fn f_help(&self) -> String {
+        String::from(        "Available commands:\n\r\
          -------------------\n\r\
          CREATE DB <database_name>           - Creates a new database.\n\r\
          CREATE COLLECTION <collection_name> - Creates a new collection in the current database.\n\r\
@@ -248,9 +247,7 @@ impl Database {
          EXIT                                - Exits the program.\n\r\
          \n\r\
          Unavailable commands (coming soon): DELETE, INSERT, UPDATE, FIND\n\r\
-         "
-    );
-        Ok(help_message)
+         "    )
     }
 
     async fn f_use(&mut self, mut token_list: TokenList<'_>) -> Result<String, Box<dyn Error>> {
@@ -285,8 +282,8 @@ impl Database {
 
                         let wg: WaitGroup = WaitGroup::new();
 
-                        if fs::read_dir(&db_path).unwrap().count() != 0 {
-                            for doc_entry in fs::read_dir(&db_path).unwrap() {
+                        if fs::read_dir(db_path).unwrap().count() != 0 {
+                            for doc_entry in fs::read_dir(db_path).unwrap() {
                                 let tx: mpsc::Sender<Document> = tx.clone();
                                 let worker: waitgroup::Worker = wg.worker();
 
@@ -300,7 +297,7 @@ impl Database {
                                             .unwrap()
                                             .to_str()
                                             .unwrap()
-                                            .split(".")
+                                            .split('.')
                                             .next()
                                             .unwrap()
                                             .to_string();
@@ -366,10 +363,10 @@ impl Database {
             if db_path.is_dir() {
                 let name: &str = db_path.file_name().unwrap().to_str().unwrap();
 
-                output_stream.push_str(format!("{}\n\r", name).as_str());
+                output_stream.push_str(format!("{name}\n\r").as_str());
             }
         }
 
-        Ok("".into())
+        Ok(String::new())
     }
 }

@@ -71,7 +71,7 @@ impl Default for TokenType<'_> {
 
 impl Display for TokenType<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        write!(f, "{self:?}")
     }
 }
 
@@ -85,7 +85,7 @@ pub struct Span {
 pub struct Token<'a> {
     pub line: usize,
     pub column: usize,
-    pub token_type: TokenType<'a>,
+    pub tok_type: TokenType<'a>,
     pub slice: &'a str,
     pub span: Span,
 }
@@ -94,14 +94,14 @@ impl<'a> Token<'a> {
     pub fn new(
         line: usize,
         column: usize,
-        token_type: TokenType<'a>,
+        tok_type: TokenType<'a>,
         slice: &'a str,
         span: Span,
     ) -> Self {
         Self {
             line,
             column,
-            token_type,
+            tok_type,
             slice,
             span,
         }

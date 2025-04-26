@@ -39,8 +39,8 @@ impl Address {
         }
 
         Ok(Self {
-            use_addr: format!("{}:{}", use_addr, use_port),
-            show_addr: format!("{}:{}", show_addr, use_port),
+            use_addr: format!("{use_addr}:{use_port}"),
+            show_addr: format!("{show_addr}:{use_port}"),
         })
     }
 }

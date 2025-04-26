@@ -39,14 +39,10 @@ impl<'a> Iterator for Lexer<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.logos_iter.next() {
-            Some((token_type, span)) => Some(Token::new(
+            Some((tok_type, span)) => Some(Token::new(
                 self.input[..span.start].matches('\n').count(),
-                span.start
-                    - self.input[..span.start]
-                        .rfind('\n')
-                        .map(|i| i + 1)
-                        .unwrap_or(0),
-                token_type.unwrap_or_default(),
+                span.start - self.input[..span.start].rfind('\n').map_or(0, |i| i + 1),
+                tok_type.unwrap_or_default(),
                 &self.input[span.start..span.end],
                 span.into(),
             )),
