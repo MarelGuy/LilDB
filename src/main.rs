@@ -1,7 +1,7 @@
 use database_manager::{address::Address, configuration::Configuration, Database};
 use lexer::token::TokenType;
 use lildb::lil_db_shell_server::LilDbShellServer;
-use std::{collections::HashSet, error::Error, net, sync::Arc, time::Duration};
+use std::{collections::HashSet, net, sync::Arc, time::Duration};
 use token_list::TokenList;
 use tokio::{signal, sync::RwLock};
 use tonic::transport::Server;
@@ -17,7 +17,10 @@ pub mod lildb {
     tonic::include_proto!("lildb");
 }
 
-async fn lex_input(input: String, mut database: Database) -> (String, bool, Database) {
+async fn lex_input(
+    input: String,
+    mut database: Database,
+) -> anyhow::Result<(String, bool, Database)> {
     let lexer: lexer::Lexer<'_> = lexer::Lexer::new(&input);
 
     let mut token_list: TokenList = TokenList::new(vec![]);
@@ -34,18 +37,18 @@ async fn lex_input(input: String, mut database: Database) -> (String, bool, Data
 
     token_list.current_token = token_list.tokens[0];
 
-    let (result, exit) = database.process_tokens(token_list).await.unwrap();
+    let (result, exit) = database.process_tokens(token_list).await?;
 
-    (result, exit, database)
+    Ok((result, exit, database))
 }
 
 #[allow(clippy::needless_return)]
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     info!("LilDB - 0.0.0");
 
-    let config: Configuration = Configuration::new("./db_config.toml".into());
+    let config: Configuration = Configuration::new("./db_config.toml").unwrap_or_default();
 
     let address: Address = Address::new(&config).await?;
 

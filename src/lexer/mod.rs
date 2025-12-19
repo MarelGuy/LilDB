@@ -42,7 +42,7 @@ impl<'a> Iterator for Lexer<'a> {
             Some((tok_type, span)) => Some(Token::new(
                 self.input[..span.start].matches('\n').count(),
                 span.start - self.input[..span.start].rfind('\n').map_or(0, |i| i + 1),
-                tok_type.unwrap_or_default(),
+                tok_type.ok()?,
                 &self.input[span.start..span.end],
                 span.into(),
             )),

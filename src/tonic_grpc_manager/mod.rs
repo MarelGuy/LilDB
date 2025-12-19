@@ -39,28 +39,40 @@ impl LilDbShell for MyLilDBShell {
         tokio::spawn(async move {
             while let Some(req) = stream.message().await.unwrap_or(None) {
                 let command: String = req.command;
-                let needs_update: bool;
-                let output_tuple: (String, bool, Database);
 
-                {
+                let execution_result: Result<(String, bool, Database), anyhow::Error> = {
                     let db_read: RwLockReadGuard<'_, Database> = db.read().await;
+
                     let db_clone: Database = db_read.clone();
 
-                    output_tuple = lex_input(command, db_clone).await;
+                    lex_input(command, db_clone).await
+                };
 
-                    needs_update = db_read.clone() != output_tuple.2;
+                let output_message: String;
+
+                match execution_result {
+                    Ok((output, _should_exit, new_db_state)) => {
+                        {
+                            let mut db_write: RwLockWriteGuard<'_, Database> = db.write().await;
+
+                            if *db_write != new_db_state {
+                                *db_write = new_db_state;
+                            }
+                        }
+                        output_message = output;
+                    }
+                    Err(e) => {
+                        output_message = format!("Error executing command: {e}\n");
+                    }
                 }
 
-                if needs_update {
-                    let new_db: Database = output_tuple.2.clone();
-                    let mut db_write: RwLockWriteGuard<'_, Database> = db.write().await;
-
-                    *db_write = new_db;
-                }
-
-                let output: String = output_tuple.0;
-
-                if tx.send(Ok(CommandResponse { output })).await.is_err() {
+                if tx
+                    .send(Ok(CommandResponse {
+                        output: output_message,
+                    }))
+                    .await
+                    .is_err()
+                {
                     break;
                 }
             }
