@@ -48,11 +48,11 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     info!("LilDB - 0.0.0");
 
-    let config: Configuration = Configuration::new("./db_config.toml").unwrap_or_default();
+    let config: Configuration = Configuration::new("./db_config.toml").await;
 
     let address: Address = Address::new(&config).await?;
 
-    let addr: net::SocketAddr = address.use_addr.to_string().parse()?;
+    let addr: net::SocketAddr = address.use_addr.parse()?;
 
     let database: Database = Database::new(
         String::new(),

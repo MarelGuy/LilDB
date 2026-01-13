@@ -6,6 +6,7 @@ pub struct Configuration {
     pub port: u16,
     pub show_local_ip: bool,
     pub show_public_ip: bool,
+    pub tls: Option<(String, String)>, // None = no tls, (key, cert) pair
 }
 
 impl Default for Configuration {
@@ -15,16 +16,23 @@ impl Default for Configuration {
             port: 8080,
             show_local_ip: false,
             show_public_ip: false,
+            tls: None,
         }
     }
 }
 
 impl Configuration {
-    pub fn new(config_file_path: &str) -> anyhow::Result<Self> {
-        let toml_file: String = std::fs::read_to_string(config_file_path)?;
+    pub async fn new(config_file_path: &str) -> Self {
+        if let Ok(file) = tokio::fs::read_to_string(config_file_path).await {
+            if let Ok(config) = toml::from_str(&file) {
+                return config;
+            }
 
-        let config: Self = toml::from_str(&toml_file)?;
+            tracing::warn!("Error in configuration file, running with default configuration...");
+        }
 
-        Ok(config)
+        tracing::warn!("Configuration file missing, running with default configuration...");
+
+        Self::default()
     }
 }
