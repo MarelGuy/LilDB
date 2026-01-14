@@ -4,7 +4,7 @@ use lildb::lil_db_shell_server::LilDbShellServer;
 use std::{collections::HashSet, net, sync::Arc, time::Duration};
 use token_list::TokenList;
 use tokio::{signal, sync::RwLock};
-use tonic::transport::Server;
+use tonic::transport::{Identity, Server, ServerTlsConfig};
 use tonic_grpc_manager::MyLilDBShell;
 use tracing::{error, info};
 
@@ -59,16 +59,24 @@ async fn main() -> anyhow::Result<()> {
         String::new(),
         HashSet::new(),
         0_usize,
-        config,
+        &config,
     );
 
     let ddb_shell: MyLilDBShell = MyLilDBShell::new(Arc::new(RwLock::new(database)));
 
-    let server = Server::builder()
-        .http2_keepalive_interval(Some(Duration::from_secs(5)))
-        .http2_keepalive_timeout(Some(Duration::from_secs(10)))
-        .add_service(LilDbShellServer::new(ddb_shell))
-        .serve(addr);
+    let server: Server = Server::builder();
+
+    let server = if let Some(config) = &config.tls {
+        server.tls_config(
+            ServerTlsConfig::new().identity(Identity::from_pem(config.0.clone(), config.1.clone())),
+        )?
+    } else {
+        server
+    }
+    .http2_keepalive_interval(Some(Duration::from_secs(5)))
+    .http2_keepalive_timeout(Some(Duration::from_secs(10)))
+    .add_service(LilDbShellServer::new(ddb_shell))
+    .serve(addr);
 
     info!("Listening on https://{}", address.show_addr);
 
