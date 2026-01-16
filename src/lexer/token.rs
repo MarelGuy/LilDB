@@ -63,12 +63,6 @@ pub enum TokenType<'a> {
     Null,
 }
 
-impl Default for TokenType<'_> {
-    fn default() -> Self {
-        Self::Null
-    }
-}
-
 impl Display for TokenType<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{self:?}")

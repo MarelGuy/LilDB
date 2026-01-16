@@ -2,10 +2,11 @@ use std::{
     collections::HashSet,
     io,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use collection::Collection;
-use configuration::Configuration;
+use configuration::Config;
 use document::Document;
 use tokio::{fs, sync::mpsc, task};
 use waitgroup::WaitGroup;
@@ -17,13 +18,23 @@ pub mod collection;
 pub mod configuration;
 pub mod document;
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Database {
     pub name: String,
     pub path: String,
     pub collections: HashSet<Collection>,
     pub current_collection: usize,
-    pub store_path: String,
+    pub config: Arc<Config>,
+}
+
+impl PartialEq for Database {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.path == other.path
+            && self.collections == other.collections
+            && self.current_collection == other.current_collection
+            && Arc::ptr_eq(&self.config, &other.config)
+    }
 }
 
 impl Database {
@@ -32,14 +43,14 @@ impl Database {
         path: String,
         collections: HashSet<Collection>,
         current_collection: usize,
-        config: &Configuration,
+        config: Arc<Config>,
     ) -> Self {
         Self {
             name,
             path,
             collections,
             current_collection,
-            store_path: config.store_path.clone(),
+            config,
         }
     }
 
@@ -81,14 +92,14 @@ impl Database {
 
                 let name: &str = token_list.current_token.slice;
 
-                if fs::read_dir(format!("{}/{}", self.store_path, name))
+                if fs::read_dir(format!("{}/{}", self.config.store_path, name))
                     .await
                     .is_ok()
                 {
                     return Ok(format!("Database \"{name}\" already exists\n\r"));
                 }
 
-                fs::create_dir_all(format!("{}/{}", self.store_path, name)).await?;
+                fs::create_dir_all(format!("{}/{}", self.config.store_path, name)).await?;
 
                 "Created database \"".into()
             }
@@ -103,7 +114,8 @@ impl Database {
 
                 let name: &str = token_list.current_token.slice;
 
-                fs::create_dir_all(format!("{}/{}/{}", self.store_path, self.name, name)).await?;
+                fs::create_dir_all(format!("{}/{}/{}", self.config.store_path, self.name, name))
+                    .await?;
 
                 self.collections.insert(Collection::new(
                     name.to_string(),
@@ -129,7 +141,7 @@ impl Database {
 
         match token_list.current_token.tok_type {
             TokenType::Dbs => {
-                let mut entries: fs::ReadDir = fs::read_dir(&self.store_path).await?;
+                let mut entries: fs::ReadDir = fs::read_dir(&self.config.store_path).await?;
 
                 while let Some(db_entry) = entries.next_entry().await? {
                     let db_path: PathBuf = db_entry.path();
@@ -175,7 +187,7 @@ impl Database {
     async fn f_drop(&mut self, mut token_list: TokenList<'_>) -> anyhow::Result<String> {
         token_list.next(1);
 
-        let config_store_path: &String = &self.store_path;
+        let config_store_path: &String = &self.config.store_path;
 
         let output_stream: String = match token_list.current_token.tok_type {
             TokenType::Db => {
@@ -245,7 +257,7 @@ impl Database {
     async fn f_use(&mut self, mut token_list: TokenList<'_>) -> anyhow::Result<String> {
         token_list.next(1);
 
-        let config_store_path: &String = &self.store_path;
+        let config_store_path: &String = &self.config.store_path;
         let requested_db_name = token_list.current_token.slice;
         let path_string: String = format!("{config_store_path}/{requested_db_name}");
         let path: &Path = Path::new(&path_string);
@@ -309,15 +321,14 @@ impl Database {
                                                     .ok_or(anyhow::anyhow!("Invalid UTF-8"))?
                                                     .to_string();
 
-                                                // Note: rx is blocking, but sending is fast.
-                                                // Ideally use tokio::sync::mpsc if you refactor further.
-                                                let _ = tx.send(Document::new(
+                                                tx.send(Document::new(
                                                     document_name,
                                                     doc_path
                                                         .to_str()
                                                         .ok_or(anyhow::anyhow!("Invalid UTF-8"))?
                                                         .to_string(),
-                                                ));
+                                                ))
+                                                .await?;
                                             }
                                         }
 
@@ -370,7 +381,7 @@ impl Database {
     // Utilities
     async fn read_names(&self, output_stream: &mut String, name: &str) -> anyhow::Result<String> {
         let dir_res: Result<fs::ReadDir, io::Error> =
-            tokio::fs::read_dir(format!("{}/{}", self.store_path, name)).await;
+            tokio::fs::read_dir(format!("{}/{}", self.config.store_path, name)).await;
 
         let mut dir: fs::ReadDir = match dir_res {
             Ok(dir) => dir,

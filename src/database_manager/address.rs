@@ -3,16 +3,15 @@ use tracing::error;
 
 use local_ip_address::local_ip;
 
-use super::configuration::Configuration;
-
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct Address {
     pub use_addr: String,
     pub show_addr: String,
 }
 
 impl Address {
-    pub async fn new(config: &Configuration) -> anyhow::Result<Self> {
-        if config.show_local_ip && config.show_public_ip {
+    pub async fn new(show_public_ip: bool, show_local_ip: bool, port: u16) -> anyhow::Result<Self> {
+        if show_local_ip && show_public_ip {
             error!("Error: cannot use both show_local_ip and show_public_ip in config.toml\n\r");
 
             process::exit(1)
@@ -21,16 +20,16 @@ impl Address {
         let mut use_addr: String = "127.0.0.1".into();
         let mut show_addr: String = "127.0.0.1".into();
 
-        let use_port: u16 = config.port;
+        let use_port: u16 = port;
 
-        if config.show_local_ip {
+        if show_local_ip {
             let local_ip: net::IpAddr = local_ip()?;
 
             use_addr = local_ip.to_string();
             show_addr = local_ip.to_string();
         }
 
-        if config.show_public_ip {
+        if show_public_ip {
             let public_ip: String = reqwest::get("https://api.ipify.org").await?.text().await?;
 
             use_addr = "0.0.0.0".into();
